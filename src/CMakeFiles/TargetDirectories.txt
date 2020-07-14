@@ -1,0 +1,9 @@
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/install/strip.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/install/local.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/edit_cache.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/ICES__home_kati_robocomp_components_robocomp-viriato_components_socialnavigationGUI_src.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/socialnavigationGUI.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/rebuild_cache.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/list_install_components.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/install.dir
+/home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/CMakeFiles/socialnavigationGUI_autogen.dir

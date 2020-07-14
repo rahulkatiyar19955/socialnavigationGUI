@@ -1,0 +1,19 @@
+import "SocialRules.idsl";
+import "DifferentialRobot.idsl";
+import "OmniRobot.idsl";
+import "Laser.idsl";
+import "RCISMousePicker.idsl";
+
+Component socialnavigationGUI
+{
+    Communications
+    {
+		requires OmniRobot, Laser;
+		subscribesTo RCISMousePicker, SocialRules;
+    };
+    language Cpp;
+    gui Qt(QWidget);
+    options agmagent;
+    statemachine "statemachine.smdsl";
+
+};
