@@ -17,6 +17,9 @@
  *    along with RoboComp.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include "specificworker.h"
+#include <time.h>
+#include <string>
+#include <QMessageBox>
 
 /**
 * \brief Default constructor
@@ -92,8 +95,6 @@ void SpecificWorker::initialize(int period)
     this->Period = period;
     timer.start(period);
 
-    timeoutTimer.start(5000);
-
     emit this->t_initialize_to_compute();
 }
 
@@ -105,27 +106,67 @@ void SpecificWorker::freePoint()
 
     x_spinbox->setValue(p.x());
     z_spinbox->setValue(p.y());
+    // timeoutTimer.start(timeoutPeriod->value() * 1000);
 }
 
 void SpecificWorker::saveToFileB()
 {
-    navigation.savePathData("pathData");
+    qDebug() << __FUNCTION__;
+    // if (navigation.writeNavData())
+    //     std::cout << "File successfully written " << std::endl;
+    // else
+    //     std::cout << "Error opening a file" << std::endl;
+    QMessageBox::StandardButton reply = QMessageBox::question(this,
+                                                              "Save Navigation Data",
+                                                              "Click on Yes, If you want to save Navigation Data",
+                                                              QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes)
+    {
+        qDebug() << "Yes is clicked";
+        if (navigation.writeNavData())
+            std::cout << "File successfully written " << std::endl;
+        else
+            std::cout << "Error opening a file" << std::endl;
+    }
+    else
+    {
+        qDebug() << "No is clicked";
+    }
 }
 void SpecificWorker::timeoutTimerMethod()
 {
     qDebug() << __FUNCTION__;
-    if (prevTimeoutCount == navigation.timeoutCount)
+    if (navigation.targetInfo == "RobotStopped")
     {
-        qDebug() << "timeout occur";
-        timeoutLabel->setText("timeout occur");
+        qDebug() << " RobotStopped" << __FUNCTION__;
+        timeoutLabel->setText("timeout: robot Stopped");
         timeoutLabel->setStyleSheet(QStringLiteral("background-color: rgb(200, 0, 0);"));
+        timeoutTimer.stop();
+        saveToFileB();
+    }
+    else if (navigation.targetInfo == "Achieved")
+    {
+        qDebug() << " Achieved " << __FUNCTION__;
+        timeoutLabel->setText("Target Achieved");
+        timeoutLabel->setStyleSheet(QStringLiteral("background-color: rgb(0, 200, 0);"));
+        timeoutTimer.stop();
+        saveToFileB();
+    }
+    else if (navigation.targetInfo == "findingTarget")
+    {
+        qDebug() << " Timeout:findingTarget " << __FUNCTION__;
+        timeoutLabel->setText("Timeout:findingTarget");
+        timeoutLabel->setStyleSheet(QStringLiteral("background-color: rgb(200, 0, 50);"));
+        timeoutTimer.stop();
+        saveToFileB();
     }
     else
     {
-        prevTimeoutCount = navigation.timeoutCount;
+        qDebug() << " " << __FUNCTION__;
         timeoutLabel->setText("");
-        timeoutLabel->setStyleSheet(QStringLiteral("background-color: rgb(0, 0, 0);"));
+        timeoutLabel->setStyleSheet(QStringLiteral(""));
     }
+    std::cout << navigation.targetInfo << std::endl;
 }
 void SpecificWorker::timeoutPeriodChanged(double value)
 {
@@ -133,7 +174,7 @@ void SpecificWorker::timeoutPeriodChanged(double value)
     int timeoutp = timeoutPeriod->value() * 1000;
     prevTimeoutCount = navigation.timeoutCount;
     timeoutLabel->setText("");
-    timeoutLabel->setStyleSheet(QStringLiteral("background-color: rgb(0, 0, 0);"));
+    timeoutLabel->setStyleSheet(QStringLiteral(""));
     timeoutTimer.start(timeoutp);
 }
 void SpecificWorker::compute()
@@ -519,11 +560,12 @@ void SpecificWorker::checkRobotAutoMovState()
     {
         navigation.robotAutoMov = true;
         navigation.newRandomTarget();
+        timeoutTimer.start(timeoutPeriod->value() * 1000);
     }
-
     else
     {
         navigation.robotAutoMov = false;
+        timeoutTimer.stop();
     }
 }
 
@@ -533,6 +575,7 @@ void SpecificWorker::sendRobotTo()
     auto z = z_spinbox->value();
 
     navigation.newTarget(QPointF(x, z));
+    timeoutTimer.start(timeoutPeriod->value() * 1000);
 }
 
 void SpecificWorker::

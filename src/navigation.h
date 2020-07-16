@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <localPerson.h>
 #include <typeinfo>
+#include <time.h>
 
 // Map
 struct TMapDefault
@@ -33,6 +34,17 @@ struct TMapDefault
 struct TContDefault
 {
     TContDefault(){};
+};
+
+struct NavData
+{
+    char time_str[20];
+    float robotposeX;
+    float robotposeZ;
+    float robotposeRY;
+    double dist_travelled;
+    char target_achived[20];
+    QPointF min_dist_obj; // for angle and distance
 };
 
 template <typename TMap = TMapDefault, typename TController = TContDefault>
@@ -59,11 +71,15 @@ public:
     float KI;
 
     int timeoutCount = 0;
+    string targetInfo = "inProgress";
 
     vector<int32_t> blockIDs;
     vector<vector<int32_t>> softBlockIDs;
 
     localPersonsVec totalPersons;
+
+    vector<NavData> navData;
+    long timeCount = 0;
 
     void initialize(const std::shared_ptr<InnerModel> &innerModel_, const std::shared_ptr<InnerViewer> &viewer_,
                     std::shared_ptr<RoboCompCommonBehavior::ParameterList> configparams_, OmniRobotPrx omnirobot_proxy_)
@@ -104,6 +120,75 @@ public:
         controller.updateInnerModel(innerModel);
     };
 
+    bool writeNavData()
+    {
+        std::time_t t = std::time(0);
+        std::tm *now = std::localtime(&t);
+        std::string timeStr = "navData_" + std::to_string(now->tm_year + 1900) +
+                              std::to_string(now->tm_mon + 1) + std::to_string(now->tm_mday) + std::to_string(now->tm_hour) +
+                              std::to_string(now->tm_min) + std::to_string(now->tm_sec) + ".dat";
+
+        FILE *outfile;
+        outfile = fopen(timeStr.c_str(), "w");
+        if (outfile == NULL)
+        {
+            return false;
+        }
+        for (auto data : navData)
+        {
+            fwrite(&data, sizeof(struct NavData), 1, outfile);
+        }
+        fclose(outfile);
+
+        //clearing the navData vector
+        navData.clear();
+
+        return true;
+    }
+
+    void insertIntoNavData(QPointF p)
+    {
+        qDebug() << "Navigation - " << __FUNCTION__;
+        NavData tempNavData;
+        strcpy(tempNavData.time_str, std::to_string(timeCount++).c_str());
+        // tempNavData.time_str = std::to_string(timeCount++).c_str();
+        tempNavData.robotposeX = currentRobotPose.x();
+        tempNavData.robotposeZ = currentRobotPose.z();
+        tempNavData.robotposeRY = currentRobotPose.ry();
+        int navDataSize = navData.size();
+        if (navDataSize > 0)
+        {
+            QPointF currRPose = QPointF(tempNavData.robotposeX, tempNavData.robotposeZ);
+            QPointF prevRPose = QPointF(navData[navDataSize - 1].robotposeX, navData[navDataSize - 1].robotposeZ);
+            float euc_dist_to_target = std::fabs(QVector2D(currRPose - prevRPose).length());
+            tempNavData.dist_travelled = navData[navDataSize - 1].dist_travelled + euc_dist_to_target;
+        }
+        else
+            tempNavData.dist_travelled = 0;
+        strcpy(tempNavData.target_achived, targetInfo.c_str());
+        // tempNavData.target_achived = targetInfo.c_str();
+        tempNavData.min_dist_obj = QPointF(p.x(), p.y());
+        navData.push_back(tempNavData);
+    }
+
+    // finding the nearest obstacle to the robot using laser data
+    QPointF nearestObstacle(RoboCompLaser::TLaserData laserData)
+    {
+        qDebug() << "Navigation - " << __FUNCTION__;
+        float min = std::numeric_limits<float>::max();
+        float angle_ = 0;
+        for (auto lData : laserData)
+        {
+            if (lData.dist < min)
+            {
+                min = lData.dist;
+                angle_ = lData.angle;
+            }
+        }
+
+        std::cout << "min->" << min << " angle->" << angle_ << std::endl;
+        return QPointF(angle_, min);
+    }
     void update(localPersonsVec totalPersons_, const RoboCompLaser::TLaserData &laserData_, bool needsReplaning)
     {
 
@@ -119,6 +204,7 @@ public:
         totalPersons = totalPersons_;
         RoboCompLaser::TLaserData laserData;
         laserData = computeLaser(laserData_);
+        // insertIntoNavData(nearestObstacle(laserData));
         currentRobotPose = innerModel->transformS6D("world", "robot");
         //    qDebug()<< "Updated Robot pose " << reloj.restart();
 
@@ -162,10 +248,6 @@ public:
             current_target.blocked.store(true);
             this->current_target.unlock();
         }
-        else
-        {
-            timeoutCount++;
-        }
 
         if (!active)
         {
@@ -188,15 +270,30 @@ public:
         {
             if (moveRobot)
                 omnirobot_proxy->setSpeedBase(xVel, zVel, rotVel);
+            insertIntoNavData(nearestObstacle(laserData));
+            targetInfo = "inProgress";
         }
 
         drawRoad();
-    };
-
+    }
     void stopRobot()
     {
         qDebug() << "Navigation - " << __FUNCTION__;
         omnirobot_proxy->setSpeedBase(0, 0, 0);
+        if (moveRobot)
+        {
+            if (controller.targetAchieved)
+            {
+                targetInfo = "Achieved";
+                qDebug() << "targetInfo: Achieved ";
+            }
+            else
+            {
+                targetInfo = "RobotStopped";
+                qDebug() << "targetInfo: RobotStopped ";
+            }
+            insertIntoNavData(QPointF(0, 0));
+        }
     }
 
     bool isCurrentTargetActive()
@@ -210,6 +307,7 @@ public:
 
         if (current_target.active.load())
         {
+            timeoutCount++;
             if (current_target.blocked.load())
             {
 
@@ -219,7 +317,10 @@ public:
                     qDebug() << "checkPathState - Path not found";
 
                     if (current_target.humanBlock.load()) //if the path is blocked by human the target is not deactivated
+                    {
+
                         return false;
+                    }
 
                     qDebug() << "checkPathState - Deactivating current target";
 
@@ -260,6 +361,7 @@ public:
     void newRandomTarget()
     {
         qDebug() << "Navigation - " << __FUNCTION__;
+        targetInfo = "findingTarget";
 
         auto hmin = std::min(collisions->outerRegion.left(), collisions->outerRegion.right());
         auto width = std::max(collisions->outerRegion.left(), collisions->outerRegion.right()) - hmin;
@@ -285,6 +387,7 @@ public:
         qDebug() << "Navigation - " << __FUNCTION__
                  << "New Target arrived " << newT;
 
+        targetInfo = "inProgress";
         if (stopMovingRobot)
         {
             stopRobot();
@@ -338,7 +441,17 @@ public:
     }
     void savePathData(const std::string &fname)
     {
-        grid.saveToFile(fname);
+        // std::ofstream myfile;
+        // myfile.open(fname);
+        // for (auto nData : navData)
+        //     myfile << nData.time_str << ","
+        //            << std::to_string(nData.robotpose.x) << ","
+        //            << std::to_string(nData.robotpose.y) << ","
+        //            << std::to_string(nData.dist_travelled) << ","
+        //            << nData.target_achived << ","
+        //            << std::to_string(nData.min_dist_obj) << ","
+        //            << std::endl;
+        // myfile.close();
     }
 
 private:

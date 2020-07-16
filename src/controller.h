@@ -11,19 +11,21 @@
 #include <cppitertools/range.hpp>
 #include <tuple>
 
-class Controller {
+class Controller
+{
 public:
-                            //   blocked, active, velx,velz,velrot
-    using retUpdate = std::tuple <bool,bool,float,float,float>;
+    //   blocked, active, velx,velz,velrot
+    using retUpdate = std::tuple<bool, bool, float, float, float>;
+    bool targetAchieved = false;
 
     void initialize(const std::shared_ptr<InnerModel> &innerModel_,
-            std::shared_ptr<RoboCompCommonBehavior::ParameterList> params_)
+                    std::shared_ptr<RoboCompCommonBehavior::ParameterList> params_)
     {
-        qDebug()<<"Controller - "<< __FUNCTION__;
+        qDebug() << "Controller - " << __FUNCTION__;
 
         innerModel = innerModel_;
         this->time = QTime::currentTime();
-        this->delay = delay*1000;	//msecs
+        this->delay = delay * 1000; //msecs
 
         try
         {
@@ -31,58 +33,61 @@ public:
             MAX_ROT_SPEED = QString::fromStdString(params_->at("MaxRotationSpeed").value).toFloat();
             MAX_SIDE_SPEED = QString::fromStdString(params_->at("MaxXSpeed").value).toFloat();
             MAX_LAG = std::stof(params_->at("MinControllerPeriod").value);
-            ROBOT_RADIUS_MM =  QString::fromStdString(params_->at("RobotRadius").value).toFloat();
+            ROBOT_RADIUS_MM = QString::fromStdString(params_->at("RobotRadius").value).toFloat();
 
-            qDebug()<< __FUNCTION__ << "CONTROLLER: Params from config:"  << MAX_ADV_SPEED << MAX_ROT_SPEED << MAX_SIDE_SPEED << MAX_LAG << ROBOT_RADIUS_MM;
-
+            qDebug() << __FUNCTION__ << "CONTROLLER: Params from config:" << MAX_ADV_SPEED << MAX_ROT_SPEED << MAX_SIDE_SPEED << MAX_LAG << ROBOT_RADIUS_MM;
         }
-        catch (const std::out_of_range& oor)
-        {   std::cerr << "CONTROLLER. Out of Range error reading parameters: " << oor.what() << '\n'; }
+        catch (const std::out_of_range &oor)
+        {
+            std::cerr << "CONTROLLER. Out of Range error reading parameters: " << oor.what() << '\n';
+        }
     }
 
     void updateInnerModel(const std::shared_ptr<InnerModel> &innerModel_)
     {
-        qDebug()<<"Controller - "<< __FUNCTION__;
+        qDebug() << "Controller - " << __FUNCTION__;
 
         innerModel = innerModel_;
     }
 
     retUpdate update(std::vector<QPointF> points, RoboCompLaser::TLaserData laserData, QPointF target, QVec robotPose)
     {
-//        qDebug()<<"Controller - "<< __FUNCTION__;
+        //        qDebug()<<"Controller - "<< __FUNCTION__;
 
         bool active = true;
         bool blocked = false;
 
-        QPointF robot = QPointF(robotPose.x(),robotPose.z());
-        QPointF robotNose = robot + QPointF(250*sin(robotPose.ry()),250*cos(robotPose.ry()));
+        QPointF robot = QPointF(robotPose.x(), robotPose.z());
+        QPointF robotNose = robot + QPointF(250 * sin(robotPose.ry()), 250 * cos(robotPose.ry()));
 
         auto firstPointInPath = points[0];
 
-
         // Compute euclidean distance to target
         float euc_dist_to_target = QVector2D(robot - target).length();
-//        qDebug()<< "DISTANCE TO TARGET " << euc_dist_to_target << "NUM POINTS "<< points.size();
+        //        qDebug()<< "DISTANCE TO TARGET " << euc_dist_to_target << "NUM POINTS "<< points.size();
 
         if (points.size() < 3 and euc_dist_to_target < FINAL_DISTANCE_TO_TARGET)
         {
-            qDebug()<< "·························";
-            qDebug()<< "···· TARGET ACHIEVED ····";
-            qDebug()<< "·························";
-            qDebug()<< " ";
+            qDebug() << "·························";
+            qDebug() << "···· TARGET ACHIEVED ····";
+            qDebug() << "·························";
+            qDebug() << " ";
 
             advVelz = 0;
             rotVel = 0;
 
             active = false;
+            targetAchieved = true;
 
-            return std::make_tuple(blocked, active, advVelx, advVelz,rotVel);
+            return std::make_tuple(blocked, active, advVelx, advVelz, rotVel);
         }
+
+        // this is set when target is not achieved and robot is still moving
+        targetAchieved = false;
 
         // Proceed through path
         // Compute rotation speed. We use angle between robot's nose and line between first and sucessive points
         // as an estimation of curvature ahead
-
         std::vector<float> angles;
         auto lim = std::min(6, (int)points.size());
         QLineF nose(robot, robotNose);
@@ -91,8 +96,7 @@ public:
             angles.push_back(rewrapAngleRestricted(qDegreesToRadians(nose.angleTo(QLineF(firstPointInPath, points[i])))));
 
         auto min_angle = std::min(angles.begin(), angles.end());
-//        auto min_angle = std::min_element(angles.begin(), angles.end());
-
+        //        auto min_angle = std::min_element(angles.begin(), angles.end());
 
         if (min_angle != angles.end())
         {
@@ -106,9 +110,9 @@ public:
             qDebug() << __FUNCTION__ << "rotvel = 0";
         }
 
-//
-//        qDebug()<< "[CONTROLLER]"<<__FUNCTION__<< "Angles "<<angles << "min_angle " << *min_angle;
-//        qDebug()<<"rotVel" <<rotVel;
+        //
+        //        qDebug()<< "[CONTROLLER]"<<__FUNCTION__<< "Angles "<<angles << "min_angle " << *min_angle;
+        //        qDebug()<<"rotVel" <<rotVel;
 
         // Compute advance speed
         std::min(advVelz = MAX_ADV_SPEED * exponentialFunction(rotVel, 0.3, 0.4, 0), euc_dist_to_target);
@@ -123,18 +127,13 @@ public:
                 total = total + QVector2D(-diff * sin(l.angle), -diff * cos(l.angle));
         }
 
-        bumperVel = total * KB;  // Parameter set in slidebar
+        bumperVel = total * KB; // Parameter set in slidebar
 
         if (abs(bumperVel.x()) < MAX_SIDE_SPEED)
             advVelx = bumperVel.x();
 
-
-        return std::make_tuple (blocked, active, advVelx, advVelz,rotVel);
-
+        return std::make_tuple(blocked, active, advVelx, advVelz, rotVel);
     }
-
-
-
 
 private:
     std::shared_ptr<InnerModel> innerModel;
@@ -146,7 +145,7 @@ private:
     float MAX_ADV_SPEED;
     float MAX_ROT_SPEED;
     float MAX_SIDE_SPEED;
-    float MAX_LAG; //ms
+    float MAX_LAG;         //ms
     float ROBOT_RADIUS_MM; //mm
 
     const float ROBOT_LENGTH = 500;
@@ -154,6 +153,7 @@ private:
     float KB = 2.0;
 
     float advVelx = 0, advVelz = 0, rotVel = 0;
+
     QVector2D bumperVel;
 
     // compute max de gauss(value) where gauss(x)=y  y min
@@ -175,7 +175,6 @@ private:
         else
             return angle;
     }
-
 };
 
 #endif //PROJECT_CONTROLLER_H

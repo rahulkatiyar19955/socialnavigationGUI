@@ -6203,6 +6203,7 @@ src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QHeaderView
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QLabel
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QLayout
+src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QMessageBox
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QPushButton
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QScrollerProperties
 src/CMakeFiles/socialnavigationGUI.dir/specificworker.cpp.o: /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QSlider

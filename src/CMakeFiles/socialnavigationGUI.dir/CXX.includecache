@@ -221,6 +221,12 @@ genericmonitor.h
 /home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/specificworker.cpp
 specificworker.h
 /home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/specificworker.h
+time.h
+-
+string
+-
+QMessageBox
+-
 
 /home/kati/robocomp/components/robocomp-viriato/components/socialnavigationGUI/src/specificworker.h
 genericworker.h
@@ -4100,6 +4106,10 @@ qlabel.h
 qlayout.h
 /usr/include/x86_64-linux-gnu/qt5/QtWidgets/qlayout.h
 
+/usr/include/x86_64-linux-gnu/qt5/QtWidgets/QMessageBox
+qmessagebox.h
+/usr/include/x86_64-linux-gnu/qt5/QtWidgets/qmessagebox.h
+
 /usr/include/x86_64-linux-gnu/qt5/QtWidgets/QPushButton
 qpushbutton.h
 /usr/include/x86_64-linux-gnu/qt5/QtWidgets/qpushbutton.h
@@ -6196,6 +6206,8 @@ algorithm
 localPerson.h
 -
 typeinfo
+-
+time.h
 -
 
 src/rcismousepickerI.h
